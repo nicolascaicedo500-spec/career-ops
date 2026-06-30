@@ -167,6 +167,39 @@ function checkPrereq({ path, fix }) {
   return { pass: false, label: `${path} not found`, fix };
 }
 
+// Validate that config/profile.yml parses as YAML. The prereq check above only
+// confirms the file EXISTS — a file full of markdown ``` fences or unindented
+// keys passes that yet silently breaks every mode that reads the profile.
+// Surfaced as a non-fatal WARNING (offline, never blocks setup) with the
+// parser's first error line.
+async function checkProfileYaml(root) {
+  const profilePath = join(root, 'config', 'profile.yml');
+  if (!existsSync(profilePath)) {
+    // Absence is already reported by the prereq check; don't double-flag it.
+    return { pass: true, label: 'config/profile.yml validity (skipped — not present yet)' };
+  }
+  let yaml;
+  try {
+    ({ default: yaml } = await import('js-yaml'));
+  } catch {
+    return { warn: true, label: 'config/profile.yml validity check skipped (js-yaml not installed)' };
+  }
+  try {
+    yaml.load(readFileSync(profilePath, 'utf8'));
+    return { pass: true, label: 'config/profile.yml is valid YAML' };
+  } catch (err) {
+    return {
+      warn: true,
+      label: 'config/profile.yml is not valid YAML',
+      fix: [
+        `Parser error: ${err.message.split('\n')[0]}`,
+        'Compare your file against config/profile.example.yml',
+        'Common causes: markdown ``` fences, unindented keys, [text](mailto:) email links',
+      ],
+    };
+  }
+}
+
 function checkFonts() {
   const fontsDir = join(projectRoot, 'fonts');
   if (!existsSync(fontsDir)) {
@@ -277,6 +310,7 @@ async function main() {
     await checkPlaywright(),
     checkPlaywrightMcp(projectRoot),
     ...USER_LAYER_PREREQS.map(checkPrereq),
+    await checkProfileYaml(projectRoot),
     checkFonts(),
     checkAutoDir('data'),
     checkPipelineFile(),

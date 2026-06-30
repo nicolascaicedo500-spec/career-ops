@@ -2853,6 +2853,43 @@ try {
   fail(`Cold-start trigger test crashed: ${e.message}`);
 }
 
+// ── 12b. PROFILE YAML VALIDITY (doctor warns on malformed profile.yml) ──
+console.log('\n12b. Profile YAML validity (doctor surfaces malformed profile.yml)');
+try {
+  // doctor exits non-zero in a bare temp env (cv.md/fonts/etc. missing); we only
+  // care about the profile-validity line, so capture stdout even on a non-zero exit.
+  const doctorStdout = (target) => {
+    try {
+      return execFileSync(NODE, ['doctor.mjs', '--target', target], { cwd: ROOT, encoding: 'utf-8', timeout: 60000 });
+    } catch (e) {
+      return (e.stdout || '').toString();
+    }
+  };
+
+  const badEnv = mkdtempSync(join(tmpdir(), 'co-badyaml-'));
+  mkdirSync(join(badEnv, 'config'), { recursive: true });
+  writeFileSync(join(badEnv, 'config', 'profile.yml'), 'candidate:\n  full_name: "X"\n```\n- broken\n');
+  if (/not valid YAML/.test(doctorStdout(badEnv))) {
+    pass('Malformed profile.yml → doctor warns (not valid YAML)');
+  } else {
+    fail('Malformed profile.yml not flagged by doctor');
+  }
+  rmSync(badEnv, { recursive: true, force: true });
+
+  const goodEnv = mkdtempSync(join(tmpdir(), 'co-goodyaml-'));
+  mkdirSync(join(goodEnv, 'config'), { recursive: true });
+  writeFileSync(join(goodEnv, 'config', 'profile.yml'), 'candidate:\n  full_name: "X"\n  email: "x@y.z"\n');
+  const goodOut = doctorStdout(goodEnv);
+  if (/config\/profile\.yml is valid YAML/.test(goodOut) && !/not valid YAML/.test(goodOut)) {
+    pass('Valid profile.yml → doctor reports valid YAML');
+  } else {
+    fail('Valid profile.yml not recognized by doctor');
+  }
+  rmSync(goodEnv, { recursive: true, force: true });
+} catch (e) {
+  fail(`Profile YAML validity test crashed: ${e.message}`);
+}
+
 // ── 15. TRACKER DERIVED INDEX (#918 phase 1) ────────────────────
 // applications.md is the source of truth; applications.db is a derived index
 // rebuilt from it. Round-trip md → db → md must be lossless for clean input
