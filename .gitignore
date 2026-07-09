@@ -33,6 +33,7 @@ writing-samples/*
 config/profile.yml
 portals.yml
 modes/_profile.md
+modes/_custom.md
 .update-dismissed
 .update-lock
 
