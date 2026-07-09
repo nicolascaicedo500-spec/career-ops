@@ -69,3 +69,8 @@ package-lock.json
 plan/
 
 siemens-procurement-excellence.md
+
+# Level 1 job-application workflow (personal data — never commit)
+applications/
+job-applications-tracker.csv
+job-applications-tracker.xlsx
